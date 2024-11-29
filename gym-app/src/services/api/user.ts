@@ -1,37 +1,37 @@
 import axios from 'axios';
-import { ApiResponse, User, UpdateProfileData } from '../../types';
-import { getConfig } from './config';
+import { ApiResponse, User, UpdateProfileData, Partial } from '../../types';
+import { API_URL } from './config';
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
-export const userAPI = {
+const userAPI = {
   getProfile: async (): Promise<ApiResponse<User>> => {
-    const response = await axios.get(`${BASE_URL}/users/profile`, getConfig());
+    const response = await axios.get(`${API_URL}/users/profile`);
     return response.data;
   },
 
   updateProfile: async (data: UpdateProfileData): Promise<ApiResponse<User>> => {
-    const response = await axios.put(`${BASE_URL}/users/profile`, data, getConfig());
+    const response = await axios.put(`${API_URL}/users/profile`, data);
     return response.data;
   },
 
-  getUsers: async (): Promise<ApiResponse<User[]>> => {
-    const response = await axios.get(`${BASE_URL}/users`, getConfig());
+  getAllUsers: async (query?: { role?: string; search?: string }): Promise<ApiResponse<User[]>> => {
+    const response = await axios.get(`${API_URL}/users`, { params: query });
     return response.data;
   },
 
-  getUser: async (id: string): Promise<ApiResponse<User>> => {
-    const response = await axios.get(`${BASE_URL}/users/${id}`, getConfig());
+  getUser: async (userId: string): Promise<ApiResponse<User>> => {
+    const response = await axios.get(`${API_URL}/users/${userId}`);
     return response.data;
   },
 
-  updateUser: async (id: string, data: Partial<User>): Promise<ApiResponse<User>> => {
-    const response = await axios.put(`${BASE_URL}/users/${id}`, data, getConfig());
+  updateUser: async (userId: string, data: Partial<User>): Promise<ApiResponse<User>> => {
+    const response = await axios.put(`${API_URL}/users/${userId}`, data);
     return response.data;
   },
 
-  deleteUser: async (id: string): Promise<ApiResponse<void>> => {
-    const response = await axios.delete(`${BASE_URL}/users/${id}`, getConfig());
+  deleteUser: async (userId: string): Promise<ApiResponse<void>> => {
+    const response = await axios.delete(`${API_URL}/users/${userId}`);
     return response.data;
   },
 };
+
+export default userAPI;

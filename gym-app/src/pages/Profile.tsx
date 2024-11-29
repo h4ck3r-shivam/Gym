@@ -101,6 +101,27 @@ const Profile: React.FC = () => {
     console.log('Changing profile photo:', event.target.files?.[0]);
   };
 
+  const currentMembership = {
+    // Replace with actual membership data
+    membershipType: 'Premium',
+    expirationDate: '2024-01-01',
+  };
+
+  const paymentHistory = [
+    // Replace with actual payment history data
+    {
+      id: 1,
+      date: '2024-01-01',
+      amount: 99.99,
+      paymentMethod: 'Credit Card',
+    },
+  ];
+
+  const handleDownloadInvoice = (paymentId: number) => {
+    // Implement download invoice logic
+    console.log('Downloading invoice for payment:', paymentId);
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Grid container spacing={3}>
@@ -239,10 +260,13 @@ const Profile: React.FC = () => {
           <TabPanel value={tabValue} index={1}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <MembershipCard />
+                <MembershipCard membership={currentMembership} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <PaymentHistory />
+                <PaymentHistory 
+                  payments={paymentHistory} 
+                  onDownloadInvoice={handleDownloadInvoice} 
+                />
               </Grid>
             </Grid>
           </TabPanel>
@@ -251,7 +275,7 @@ const Profile: React.FC = () => {
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <ProfileSettings
-                  open={isEditingProfile}
+                  isOpen={isEditingProfile}
                   onClose={() => setIsEditingProfile(false)}
                 />
               </Grid>

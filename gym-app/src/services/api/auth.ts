@@ -1,73 +1,68 @@
-import api from './config';
+import axios from 'axios';
+import { API_URL } from './config';
+import { LoginCredentials, RegisterData, User, ApiResponse } from '../../types';
 
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-export interface RegisterData extends LoginCredentials {
-  name: string;
-  phoneNumber?: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    membershipStatus?: string;
-  };
-}
-
-export const authApi = {
-  login: async (credentials: LoginCredentials) => {
-    const response = await api.post<AuthResponse>('/auth/login', credentials);
-    return response.data;
+export const authAPI = {
+  async login(credentials: LoginCredentials): Promise<ApiResponse<{ user: User; token: string }>> {
+    try {
+      const response = await axios.post(`${API_URL}/auth/login`, credentials);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  register: async (data: RegisterData) => {
-    const response = await api.post<AuthResponse>('/auth/register', data);
-    return response.data;
+  async register(data: RegisterData): Promise<ApiResponse<{ user: User; token: string }>> {
+    try {
+      const response = await axios.post(`${API_URL}/auth/register`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  logout: async () => {
-    await api.post('/auth/logout');
-    localStorage.removeItem('token');
+  async verifyToken(): Promise<ApiResponse<{ user: User }>> {
+    try {
+      const response = await axios.get(`${API_URL}/auth/verify`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  forgotPassword: async (email: string) => {
-    await api.post('/auth/forgot-password', { email });
+  async logout(): Promise<ApiResponse<null>> {
+    try {
+      const response = await axios.post(`${API_URL}/auth/logout`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  resetPassword: async (token: string, password: string) => {
-    await api.post('/auth/reset-password', { token, password });
+  async forgotPassword(email: string): Promise<ApiResponse<{ message: string }>> {
+    try {
+      const response = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  verifyEmail: async (token: string) => {
-    await api.post('/auth/verify-email', { token });
+  async resetPassword(token: string, password: string): Promise<ApiResponse<{ message: string }>> {
+    try {
+      const response = await axios.post(`${API_URL}/auth/reset-password`, { token, password });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  refreshToken: async () => {
-    const response = await api.post<{ token: string }>('/auth/refresh-token');
-    return response.data;
-  },
-
-  getCurrentUser: async () => {
-    const response = await api.get<AuthResponse['user']>('/auth/me');
-    return response.data;
-  },
-
-  updateProfile: async (data: Partial<AuthResponse['user']>) => {
-    const response = await api.put<AuthResponse['user']>('/auth/profile', data);
-    return response.data;
-  },
-
-  changePassword: async (currentPassword: string, newPassword: string) => {
-    await api.put('/auth/change-password', {
-      currentPassword,
-      newPassword,
-    });
+  async changePassword(data: { currentPassword: string; newPassword: string }): Promise<ApiResponse<void>> {
+    try {
+      const response = await axios.post(`${API_URL}/auth/change-password`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 };

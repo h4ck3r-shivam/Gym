@@ -86,6 +86,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
         await onUpdateUser(selectedUser.id, {
           ...values,
           role: values.role as UserRole,
+          status: values.status as UserStatus,
         });
         handleCloseEditDialog();
       } catch (err: any) {

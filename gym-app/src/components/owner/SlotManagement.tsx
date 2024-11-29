@@ -1,72 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
-  Card,
-  CardContent,
-  Grid,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Button,
+  Grid,
   Paper,
-  Alert,
   CircularProgress,
-  Chip,
+  Alert,
+  IconButton,
 } from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
-import { TimePicker } from '@mui/x-date-pickers/TimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format } from 'date-fns';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { useAuth } from '../../contexts/AuthContext';
 import { slotAPI } from '../../services/api';
-import { Slot } from '../../types';
+import { Slot, CreateSlotDTO, UpdateSlotDTO } from '../../types';
 
 interface SlotManagementProps {
   gymId: string;
 }
 
-const validationSchema = Yup.object({
-  startTime: Yup.date().required('Start time is required'),
-  endTime: Yup.date()
-    .required('End time is required')
-    .min(Yup.ref('startTime'), 'End time must be after start time'),
-  capacity: Yup.number()
-    .required('Capacity is required')
-    .min(1, 'Capacity must be at least 1'),
-  price: Yup.number()
-    .required('Price is required')
-    .min(0, 'Price must be non-negative'),
-});
-
 const SlotManagement: React.FC<SlotManagementProps> = ({ gymId }) => {
+  const { token } = useAuth();
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
-
-  useEffect(() => {
-    fetchSlots();
-  }, [gymId]);
+  const [isAddingSlot, setIsAddingSlot] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
 
   const fetchSlots = async () => {
+    if (!token) return;
     try {
       setLoading(true);
-      const response = await slotAPI.getGymSlots(gymId);
-      setSlots(response.data.data.slots);
-      setError(null);
+      const response = await slotAPI.getGymSlots(gymId, token);
+      if (response.data?.slots) {
+        setSlots(response.data.slots);
+        setError(null);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch slots');
     } finally {
@@ -74,206 +42,163 @@ const SlotManagement: React.FC<SlotManagementProps> = ({ gymId }) => {
     }
   };
 
-  const formik = useFormik({
-    initialValues: {
-      startTime: selectedSlot?.startTime || new Date(),
-      endTime: selectedSlot?.endTime || new Date(),
-      capacity: selectedSlot?.capacity || 10,
-      price: selectedSlot?.price || 0,
-    },
-    validationSchema,
-    enableReinitialize: true,
-    onSubmit: async (values) => {
-      try {
-        setLoading(true);
-        if (selectedSlot) {
-          await slotAPI.updateSlot(selectedSlot._id, values);
-        } else {
-          await slotAPI.createSlot(gymId, values);
-        }
-        await fetchSlots();
-        handleCloseDialog();
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to save slot');
-      } finally {
-        setLoading(false);
-      }
-    },
-  });
+  useEffect(() => {
+    fetchSlots();
+  }, [gymId, token]);
 
-  const handleOpenDialog = (slot?: Slot) => {
-    setSelectedSlot(slot || null);
-    setDialogOpen(true);
+  const handleAddSlot = () => {
+    setIsAddingSlot(true);
+    setEditingSlot(null);
   };
 
-  const handleCloseDialog = () => {
-    setSelectedSlot(null);
-    setDialogOpen(false);
-    formik.resetForm();
+  const handleEditSlot = (slot: Slot) => {
+    setEditingSlot(slot);
+    setIsAddingSlot(false);
   };
 
   const handleDeleteSlot = async (slotId: string) => {
-    if (!window.confirm('Are you sure you want to delete this slot?')) return;
-
+    if (!token) return;
     try {
-      setLoading(true);
-      await slotAPI.deleteSlot(slotId);
-      await fetchSlots();
+      await slotAPI.deleteSlot(gymId, slotId, token);
+      setSlots(slots.filter(slot => slot.id !== slotId));
+      setError(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete slot');
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (loading && !dialogOpen) {
+  const handleSlotSubmit = async (slotData: CreateSlotDTO | UpdateSlotDTO) => {
+    if (!token) return;
+    try {
+      if (editingSlot) {
+        const response = await slotAPI.updateSlot(
+          gymId, 
+          editingSlot.id, 
+          slotData as UpdateSlotDTO, 
+          token
+        );
+        if (response.data?.slot) {
+          setSlots(slots.map(slot => 
+            slot.id === editingSlot.id ? response.data.slot : slot
+          ));
+        }
+      } else {
+        const response = await slotAPI.createSlot(gymId, slotData as CreateSlotDTO, token);
+        if (response.data?.slot) {
+          setSlots([...slots, response.data.slot]);
+        }
+      }
+      setIsAddingSlot(false);
+      setEditingSlot(null);
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save slot');
+    }
+  };
+
+  const handleCancel = () => {
+    setIsAddingSlot(false);
+    setEditingSlot(null);
+  };
+
+  if (!token) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      <Alert severity="warning">
+        Please log in to manage slots
+      </Alert>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" p={3}>
         <CircularProgress />
       </Box>
     );
   }
 
+  if (error) {
+    return (
+      <Alert severity="error">
+        {error}
+      </Alert>
+    );
+  }
+
   return (
-    <Card>
-      <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-          <Typography variant="h5">Manage Time Slots</Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpenDialog()}
-          >
-            Add New Slot
-          </Button>
-        </Box>
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h6">
+          Manage Slots
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={handleAddSlot}
+          disabled={isAddingSlot || !!editingSlot}
+        >
+          Add New Slot
+        </Button>
+      </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+      {(isAddingSlot || editingSlot) && (
+        <Paper sx={{ p: 2, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            {editingSlot ? 'Edit Slot' : 'Add New Slot'}
+          </Typography>
+          <SlotForm
+            initialData={editingSlot || undefined}
+            onSubmit={handleSlotSubmit}
+            onCancel={handleCancel}
+          />
+        </Paper>
+      )}
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Time</TableCell>
-                <TableCell align="center">Capacity</TableCell>
-                <TableCell align="center">Available</TableCell>
-                <TableCell align="right">Price</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {slots.map((slot) => (
-                <TableRow key={slot._id}>
-                  <TableCell>
-                    {format(new Date(slot.startTime), 'p')} -{' '}
-                    {format(new Date(slot.endTime), 'p')}
-                  </TableCell>
-                  <TableCell align="center">{slot.capacity}</TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={`${slot.available} spots`}
-                      color={slot.available > 0 ? 'success' : 'error'}
-                      variant="outlined"
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">₹{slot.price}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(slot)}
-                      sx={{ mr: 1 }}
-                    >
-                      <Edit />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDeleteSlot(slot._id)}
-                      color="error"
-                    >
-                      <Delete />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {slots.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    No slots available
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          <form onSubmit={formik.handleSubmit}>
-            <DialogTitle>
-              {selectedSlot ? 'Edit Slot' : 'Add New Slot'}
-            </DialogTitle>
-            <DialogContent>
-              <Grid container spacing={3} sx={{ mt: 0 }}>
-                <Grid item xs={12}>
-                  <LocalizationProvider dateAdapter={AdapterDateFns}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <TimePicker
-                          label="Start Time"
-                          value={formik.values.startTime}
-                          onChange={(value) => formik.setFieldValue('startTime', value)}
-                        />
-                      </Grid>
-                      <Grid item xs={6}>
-                        <TimePicker
-                          label="End Time"
-                          value={formik.values.endTime}
-                          onChange={(value) => formik.setFieldValue('endTime', value)}
-                        />
-                      </Grid>
-                    </Grid>
-                  </LocalizationProvider>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Capacity"
-                    name="capacity"
-                    type="number"
-                    value={formik.values.capacity}
-                    onChange={formik.handleChange}
-                    error={formik.touched.capacity && Boolean(formik.errors.capacity)}
-                    helperText={formik.touched.capacity && formik.errors.capacity}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Price"
-                    name="price"
-                    type="number"
-                    value={formik.values.price}
-                    onChange={formik.handleChange}
-                    error={formik.touched.price && Boolean(formik.errors.price)}
-                    helperText={formik.touched.price && formik.errors.price}
-                  />
-                </Grid>
-              </Grid>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseDialog}>Cancel</Button>
-              <Button type="submit" variant="contained">
-                {selectedSlot ? 'Save Changes' : 'Add Slot'}
-              </Button>
-            </DialogActions>
-          </form>
-        </Dialog>
-      </CardContent>
-    </Card>
+      <Grid container spacing={2}>
+        {slots.map((slot) => (
+          <Grid item xs={12} sm={6} md={4} key={slot.id}>
+            <Paper sx={{ p: 2 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                <Box>
+                  <Typography variant="h6">
+                    {slot.startTime} - {slot.endTime}
+                  </Typography>
+                  <Typography color="textSecondary">
+                    Capacity: {slot.capacity}
+                  </Typography>
+                  <Typography color="textSecondary">
+                    Daily Price: ₹{slot.price.day}
+                  </Typography>
+                  <Typography color="textSecondary">
+                    Weekly Price: ₹{slot.price.week}
+                  </Typography>
+                  <Typography color="textSecondary">
+                    Monthly Price: ₹{slot.price.month}
+                  </Typography>
+                </Box>
+                <Box>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleEditSlot(slot)}
+                    disabled={isAddingSlot || !!editingSlot}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDeleteSlot(slot.id)}
+                    disabled={isAddingSlot || !!editingSlot}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
   );
 };
 

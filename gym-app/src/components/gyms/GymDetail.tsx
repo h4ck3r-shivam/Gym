@@ -207,9 +207,11 @@ const GymDetail = () => {
                     precision={0.5}
                     aria-label={`Rated ${gym.rating} out of 5 stars`}
                   />
-                  <Typography variant="body2" color="text.secondary">
-                    {gym.reviews.length} reviews
-                  </Typography>
+                  {gym.reviews && (
+                    <Typography variant="body2" color="text.secondary">
+                      {gym.reviews.length} reviews
+                    </Typography>
+                  )}
                 </Box>
               </Box>
 
@@ -227,18 +229,20 @@ const GymDetail = () => {
               <Typography variant="h6" component="h2" gutterBottom sx={{ mt: 3 }}>
                 Amenities
               </Typography>
-              <Grid container spacing={1} role="list">
-                {gym.amenities.map((amenity) => (
-                  <Grid item key={amenity} role="listitem">
-                    <Chip
-                      icon={amenityIcons[amenity]}
-                      label={amenity}
-                      variant="outlined"
-                      sx={{ m: 0.5 }}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
+              {gym.amenities && (
+                <Grid container spacing={1} role="list">
+                  {gym.amenities.map((amenity: string) => (
+                    <Grid item key={amenity} role="listitem">
+                      <Chip
+                        icon={amenityIcons[amenity]}
+                        label={amenity}
+                        variant="outlined"
+                        sx={{ m: 0.5 }}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
             </CardContent>
           </Card>
 
@@ -247,40 +251,42 @@ const GymDetail = () => {
             <Typography variant="h5" component="h2" gutterBottom>
               Reviews
             </Typography>
-            {gym.reviews.length === 0 ? (
+            {gym.reviews && gym.reviews.length === 0 ? (
               <Typography color="text.secondary">No reviews yet</Typography>
             ) : (
-              <List aria-label="Reviews list">
-                {gym.reviews.map((review: Review) => (
-                  <React.Fragment key={review._id}>
-                    <ListItem alignItems="flex-start">
-                      <ListItemIcon>
-                        <Person aria-hidden="true" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography component="span" variant="subtitle1">
-                              {renderReviewUser(review)}
-                            </Typography>
-                            <Rating 
-                              value={review.rating} 
-                              size="small" 
-                              readOnly 
-                              aria-label={`Rated ${review.rating} out of 5 stars`}
-                            />
-                            <Typography variant="body2" color="text.secondary">
-                              {format(new Date(review.createdAt), 'dd MMM yyyy')}
-                            </Typography>
-                          </Box>
-                        }
-                        secondary={review.comment}
-                      />
-                    </ListItem>
-                    <Divider component="li" />
-                  </React.Fragment>
-                ))}
-              </List>
+              gym.reviews && (
+                <List aria-label="Reviews list">
+                  {gym.reviews.map((review: Review) => (
+                    <React.Fragment key={review._id}>
+                      <ListItem alignItems="flex-start">
+                        <ListItemIcon>
+                          <Person aria-hidden="true" />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography component="span" variant="subtitle1">
+                                {renderReviewUser(review)}
+                              </Typography>
+                              <Rating 
+                                value={review.rating} 
+                                size="small" 
+                                readOnly 
+                                aria-label={`Rated ${review.rating} out of 5 stars`}
+                              />
+                              <Typography variant="body2" color="text.secondary">
+                                {format(new Date(review.createdAt), 'dd MMM yyyy')}
+                              </Typography>
+                            </Box>
+                          }
+                          secondary={review.comment}
+                        />
+                      </ListItem>
+                      <Divider component="li" />
+                    </React.Fragment>
+                  ))}
+                </List>
+              )
             )}
           </Paper>
         </Grid>

@@ -26,49 +26,26 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { analyticsAPI } from '../../services/api';
-
-interface AnalyticsData {
-  revenue: {
-    daily: { date: string; amount: number }[];
-    monthly: { month: string; amount: number }[];
-  };
-  bookings: {
-    total: number;
-    active: number;
-    completed: number;
-    cancelled: number;
-    byPlan: { plan: string; count: number }[];
-  };
-  members: {
-    total: number;
-    active: number;
-    new: number;
-    byAge: { range: string; count: number }[];
-  };
-}
+import { useAuth } from '../../contexts/AuthContext';
 
 const Analytics: React.FC<{ gymId: string }> = ({ gymId }) => {
   const theme = useTheme();
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<AnalyticsData | null>(null);
-
-  const COLORS = [
-    theme.palette.primary.main,
-    theme.palette.secondary.main,
-    theme.palette.error.main,
-    theme.palette.warning.main,
-  ];
+  const [data, setData] = useState<any>(null);
 
   useEffect(() => {
     fetchAnalytics();
   }, [gymId]);
 
   const fetchAnalytics = async () => {
+    if (!currentUser?.token) return;
+    
     try {
       setLoading(true);
-      const response = await analyticsAPI.getGymAnalytics(gymId);
-      setData(response.data.data);
+      const response = await analyticsAPI.getAnalytics(gymId, currentUser.token);
+      setData(response.data);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch analytics');
@@ -97,7 +74,6 @@ const Analytics: React.FC<{ gymId: string }> = ({ gymId }) => {
 
   return (
     <Box>
-      {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
@@ -106,7 +82,7 @@ const Analytics: React.FC<{ gymId: string }> = ({ gymId }) => {
                 Total Revenue
               </Typography>
               <Typography variant="h4">
-                ₹{data.revenue.monthly.reduce((acc, curr) => acc + curr.amount, 0)}
+                ₹{data.revenue.yearly}
               </Typography>
             </CardContent>
           </Card>
@@ -115,19 +91,9 @@ const Analytics: React.FC<{ gymId: string }> = ({ gymId }) => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Active Members
+                Total Bookings
               </Typography>
-              <Typography variant="h4">{data.members.active}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                New Members
-              </Typography>
-              <Typography variant="h4">{data.members.new}</Typography>
+              <Typography variant="h4">{data.bookings.total}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -137,90 +103,63 @@ const Analytics: React.FC<{ gymId: string }> = ({ gymId }) => {
               <Typography color="textSecondary" gutterBottom>
                 Active Bookings
               </Typography>
-              <Typography variant="h4">{data.bookings.active}</Typography>
+              <Typography variant="h4">{data.bookings.confirmed}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Users
+              </Typography>
+              <Typography variant="h4">{data.users.total}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Revenue Chart */}
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Revenue Trend
-        </Typography>
-        <Box sx={{ height: 300 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data.revenue.daily}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(date) => format(new Date(date), 'MMM dd')}
-              />
-              <YAxis />
-              <Tooltip
-                labelFormatter={(date) => format(new Date(date), 'MMM dd, yyyy')}
-                formatter={(value: number) => [`₹${value}`, 'Revenue']}
-              />
-              <Line
-                type="monotone"
-                dataKey="amount"
-                stroke={theme.palette.primary.main}
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </Box>
-      </Paper>
-
       <Grid container spacing={4}>
-        {/* Bookings by Plan */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Bookings by Plan
+              Revenue Overview
             </Typography>
-            <Box sx={{ height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.bookings.byPlan}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="plan" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill={theme.palette.primary.main} />
-                </BarChart>
-              </ResponsiveContainer>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1">
+                Daily Revenue: ₹{data.revenue.daily}
+              </Typography>
+              <Typography variant="body1">
+                Weekly Revenue: ₹{data.revenue.weekly}
+              </Typography>
+              <Typography variant="body1">
+                Monthly Revenue: ₹{data.revenue.monthly}
+              </Typography>
+              <Typography variant="body1">
+                Yearly Revenue: ₹{data.revenue.yearly}
+              </Typography>
             </Box>
           </Paper>
         </Grid>
 
-        {/* Members by Age */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Members by Age
+              Booking Statistics
             </Typography>
-            <Box sx={{ height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data.members.byAge}
-                    dataKey="count"
-                    nameKey="range"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    label
-                  >
-                    {data.members.byAge.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1">
+                Total Bookings: {data.bookings.total}
+              </Typography>
+              <Typography variant="body1">
+                Pending Bookings: {data.bookings.pending}
+              </Typography>
+              <Typography variant="body1">
+                Confirmed Bookings: {data.bookings.confirmed}
+              </Typography>
+              <Typography variant="body1">
+                Cancelled Bookings: {data.bookings.cancelled}
+              </Typography>
             </Box>
           </Paper>
         </Grid>

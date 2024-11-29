@@ -1,40 +1,43 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { CircularProgress, Container, Typography, Alert } from '@mui/material';
+import { Container, Alert, CircularProgress, Box } from '@mui/material';
+import { UserRole } from '../../types';
 
 interface PrivateRouteProps {
-  children?: React.ReactNode;
-  roles?: ('user' | 'admin' | 'trainer')[];
+  children: React.ReactNode;
+  roles?: UserRole[];
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles }) => {
   const { currentUser, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
+      <Container>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+          <CircularProgress />
+        </Box>
       </Container>
     );
   }
 
   if (!currentUser) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If roles are specified, check if user has the required role
   if (roles && roles.length > 0 && !roles.includes(currentUser.role)) {
     return (
       <Container>
         <Alert severity="error">
-          <Typography>You do not have permission to access this page.</Typography>
+          You do not have permission to access this page.
         </Alert>
       </Container>
     );
   }
 
-  return children ? <>{children}</> : <Outlet />;
+  return <>{children}</>;
 };
 
 export default PrivateRoute;

@@ -123,12 +123,12 @@ const ReviewList: React.FC<ReviewListProps> = ({ gymId, onReviewAdded }) => {
             <Box sx={{ mb: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Avatar sx={{ mr: 2 }}>
-                  {review.user.firstName[0]}
-                  {review.user.lastName[0]}
+                  {typeof review.user === 'string' ? review.user[0] : review.user.firstName[0]}
+                  {typeof review.user === 'string' ? '' : review.user.lastName[0]}
                 </Avatar>
                 <Box>
                   <Typography variant="subtitle1">
-                    {review.user.firstName} {review.user.lastName}
+                    {typeof review.user === 'string' ? review.user : `${review.user.firstName} ${review.user.lastName}`}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {format(new Date(review.createdAt), 'PP')}

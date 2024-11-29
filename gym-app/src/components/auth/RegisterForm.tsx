@@ -1,201 +1,179 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { RegisterData, UserRole } from '../../types';
 import {
   Box,
   Button,
   TextField,
   Typography,
+  Container,
   Alert,
-  CircularProgress,
   Paper,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
   FormControl,
-  FormLabel,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  SelectChangeEvent
 } from '@mui/material';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 
-const validationSchema = Yup.object({
-  firstName: Yup.string().required('First name is required'),
-  lastName: Yup.string().required('Last name is required'),
-  email: Yup.string().email('Invalid email').required('Email is required'),
-  password: Yup.string()
-    .min(8, 'Password must be at least 8 characters')
-    .required('Password is required'),
-  confirmPassword: Yup.string()
-    .oneOf([Yup.ref('password')], 'Passwords must match')
-    .required('Confirm password is required'),
-  role: Yup.string().oneOf(['user', 'owner']).required('Role is required'),
-  phone: Yup.string().required('Phone number is required'),
-});
-
-const RegisterForm = () => {
+const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, error } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const formik = useFormik({
-    initialValues: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      role: 'user',
-      phone: '',
-    },
-    validationSchema,
-    onSubmit: async (values) => {
-      try {
-        setLoading(true);
-        setError(null);
-        await register({
-          ...values,
-          role: values.role as UserRole,
-        });
-        navigate('/');
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Registration failed');
-      } finally {
-        setLoading(false);
-      }
-    },
+  const [formData, setFormData] = useState<RegisterData>({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
+    phoneNumber: '',
+    role: 'user' as 'user' | 'owner' | 'admin'
   });
 
+  const handleChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>
+  ) => {
+    const { name, value } = event.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await register(formData);
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Registration error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        bgcolor: 'grey.100',
-      }}
-    >
-      <Paper
-        elevation={3}
-        sx={{
-          p: 4,
-          width: '100%',
-          maxWidth: 500,
-          mx: 2,
-        }}
-      >
-        <Typography variant="h5" align="center" gutterBottom>
-          Create Your Account
-        </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <form onSubmit={formik.handleSubmit}>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <TextField
-              fullWidth
-              label="First Name"
-              name="firstName"
-              value={formik.values.firstName}
-              onChange={formik.handleChange}
-              error={formik.touched.firstName && Boolean(formik.errors.firstName)}
-              helperText={formik.touched.firstName && formik.errors.firstName}
-            />
-            <TextField
-              fullWidth
-              label="Last Name"
-              name="lastName"
-              value={formik.values.lastName}
-              onChange={formik.handleChange}
-              error={formik.touched.lastName && Boolean(formik.errors.lastName)}
-              helperText={formik.touched.lastName && formik.errors.lastName}
-            />
-          </Box>
-
-          <TextField
-            fullWidth
-            label="Email"
-            name="email"
-            type="email"
-            sx={{ mb: 2 }}
-            value={formik.values.email}
-            onChange={formik.handleChange}
-            error={formik.touched.email && Boolean(formik.errors.email)}
-            helperText={formik.touched.email && formik.errors.email}
-          />
-
-          <TextField
-            fullWidth
-            label="Phone Number"
-            name="phone"
-            sx={{ mb: 2 }}
-            value={formik.values.phone}
-            onChange={formik.handleChange}
-            error={formik.touched.phone && Boolean(formik.errors.phone)}
-            helperText={formik.touched.phone && formik.errors.phone}
-          />
-
-          <TextField
-            fullWidth
-            label="Password"
-            name="password"
-            type="password"
-            sx={{ mb: 2 }}
-            value={formik.values.password}
-            onChange={formik.handleChange}
-            error={formik.touched.password && Boolean(formik.errors.password)}
-            helperText={formik.touched.password && formik.errors.password}
-          />
-
-          <TextField
-            fullWidth
-            label="Confirm Password"
-            name="confirmPassword"
-            type="password"
-            sx={{ mb: 2 }}
-            value={formik.values.confirmPassword}
-            onChange={formik.handleChange}
-            error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
-            helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
-          />
-
-          <FormControl component="fieldset" sx={{ mb: 2 }}>
-            <FormLabel component="legend">Account Type</FormLabel>
-            <RadioGroup
-              row
-              name="role"
-              value={formik.values.role}
-              onChange={formik.handleChange}
-            >
-              <FormControlLabel value="user" control={<Radio />} label="Member" />
-              <FormControlLabel value="owner" control={<Radio />} label="Gym Owner" />
-            </RadioGroup>
-          </FormControl>
-
-          <Button
-            type="submit"
-            variant="contained"
-            fullWidth
-            disabled={loading}
-            sx={{ mb: 2 }}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Register'}
-          </Button>
-
-          <Typography align="center" color="text.secondary">
-            Already have an account?{' '}
-            <Button color="primary" onClick={() => navigate('/login')}>
-              Login
-            </Button>
+    <Container maxWidth="sm">
+      <Box sx={{ mt: 8 }}>
+        <Paper elevation={3} sx={{ p: 4 }}>
+          <Typography component="h1" variant="h5" align="center" gutterBottom>
+            Create Account
           </Typography>
-        </form>
-      </Paper>
-    </Box>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          <Box component="form" onSubmit={handleSubmit}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  required
+                  fullWidth
+                  name="firstName"
+                  label="First Name"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  required
+                  fullWidth
+                  name="lastName"
+                  label="Last Name"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  name="email"
+                  label="Email Address"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  name="phoneNumber"
+                  label="Phone Number"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>Role</InputLabel>
+                  <Select
+                    name="role"
+                    value={formData.role}
+                    label="Role"
+                    onChange={(event) => handleChange(event as SelectChangeEvent<string>)}
+                  >
+                    <MenuItem value="user">User</MenuItem>
+                    <MenuItem value="owner">Gym Owner</MenuItem>
+                    <MenuItem value="admin">Admin</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  name="password"
+                  label="Password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  name="confirmPassword"
+                  label="Confirm Password"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  error={formData.password !== formData.confirmPassword}
+                  helperText={
+                    formData.password !== formData.confirmPassword
+                      ? 'Passwords do not match'
+                      : ''
+                  }
+                />
+              </Grid>
+            </Grid>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 3, mb: 2 }}
+              disabled={loading || formData.password !== formData.confirmPassword}
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </Button>
+            <Button
+              fullWidth
+              variant="text"
+              onClick={() => navigate('/login')}
+              sx={{ mt: 1 }}
+            >
+              Already have an account? Sign In
+            </Button>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 

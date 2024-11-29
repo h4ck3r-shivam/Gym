@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Drawer,
   List,
   ListItem,
   ListItemIcon,
@@ -9,84 +10,159 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  Dashboard,
-  FitnessCenter,
-  Event,
-  People,
-  Person,
-  Settings,
-  CreditCard,
-  Notifications,
+  Dashboard as DashboardIcon,
+  FitnessCenter as GymIcon,
+  Event as BookingIcon,
+  Settings as SettingsIcon,
+  RateReview as ReviewIcon,
+  Notifications as NotificationIcon,
+  Analytics as AnalyticsIcon,
+  Person as ProfileIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-const Sidebar = () => {
+interface SidebarProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser } = useAuth();
 
-  const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-    { text: 'Gyms', icon: <FitnessCenter />, path: '/gyms' },
-    { text: 'Classes', icon: <Event />, path: '/classes' },
-    { text: 'Bookings', icon: <Event />, path: '/bookings' },
-    { text: 'Instructors', icon: <People />, path: '/instructors' },
-    { text: 'Membership', icon: <CreditCard />, path: '/membership' },
-    { text: 'Notifications', icon: <Notifications />, path: '/notifications' },
-    { text: 'Settings', icon: <Settings />, path: '/settings' },
-  ];
+  const getNavItems = () => {
+    const items = [
+      {
+        text: 'Profile',
+        icon: <ProfileIcon />,
+        path: '/profile',
+        roles: ['user', 'owner', 'admin'],
+      },
+    ];
+
+    if (currentUser?.role === 'user') {
+      items.push(
+        {
+          text: 'Find Gyms',
+          icon: <GymIcon />,
+          path: '/gyms',
+          roles: ['user'],
+        },
+        {
+          text: 'My Bookings',
+          icon: <BookingIcon />,
+          path: '/bookings',
+          roles: ['user'],
+        },
+        {
+          text: 'My Reviews',
+          icon: <ReviewIcon />,
+          path: '/reviews',
+          roles: ['user'],
+        }
+      );
+    }
+
+    if (currentUser?.role === 'owner') {
+      items.push(
+        {
+          text: 'Dashboard',
+          icon: <DashboardIcon />,
+          path: '/owner/dashboard',
+          roles: ['owner'],
+        },
+        {
+          text: 'Bookings',
+          icon: <BookingIcon />,
+          path: '/owner/bookings',
+          roles: ['owner'],
+        },
+        {
+          text: 'Analytics',
+          icon: <AnalyticsIcon />,
+          path: '/owner/analytics',
+          roles: ['owner'],
+        }
+      );
+    }
+
+    if (currentUser?.role === 'admin') {
+      items.push(
+        {
+          text: 'Dashboard',
+          icon: <DashboardIcon />,
+          path: '/admin/dashboard',
+          roles: ['admin'],
+        },
+        {
+          text: 'Users',
+          icon: <ProfileIcon />,
+          path: '/admin/users',
+          roles: ['admin'],
+        },
+        {
+          text: 'Analytics',
+          icon: <AnalyticsIcon />,
+          path: '/admin/analytics',
+          roles: ['admin'],
+        }
+      );
+    }
+
+    items.push(
+      {
+        text: 'Notifications',
+        icon: <NotificationIcon />,
+        path: '/notifications',
+        roles: ['user', 'owner', 'admin'],
+      },
+      {
+        text: 'Settings',
+        icon: <SettingsIcon />,
+        path: '/settings',
+        roles: ['user', 'owner', 'admin'],
+      }
+    );
+
+    return items.filter(item => item.roles.includes(currentUser?.role || ''));
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    onClose();
+  };
+
+  if (!currentUser) return null;
 
   return (
-    <Box sx={{ overflow: 'auto' }}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <FitnessCenter />
-        <Typography variant="h6" component="div">
-          Gym App
-        </Typography>
-      </Box>
-      <Divider />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem
-            button
-            key={item.text}
-            onClick={() => navigate(item.path)}
-            selected={location.pathname === item.path}
-            sx={{
-              '&.Mui-selected': {
-                backgroundColor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
-                },
-                '& .MuiListItemIcon-root': {
-                  color: 'white',
-                },
-              },
-            }}
-          >
-            <ListItemIcon
-              sx={{
-                color: location.pathname === item.path ? 'white' : 'inherit',
-              }}
+    <Drawer anchor="left" open={open} onClose={onClose}>
+      <Box sx={{ width: 250 }} role="presentation">
+        <Box sx={{ p: 2 }}>
+          <Typography variant="h6" component="div">
+            {currentUser.name}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}
+          </Typography>
+        </Box>
+        <Divider />
+        <List>
+          {getNavItems().map((item) => (
+            <ListItem
+              button
+              key={item.text}
+              onClick={() => handleNavigation(item.path)}
+              selected={location.pathname === item.path}
             >
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
-      </List>
-      <Divider />
-      <Box sx={{ p: 2, mt: 'auto' }}>
-        <Typography variant="body2" color="text.secondary">
-          {currentUser?.name}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {currentUser?.email}
-        </Typography>
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
+        </List>
       </Box>
-    </Box>
+    </Drawer>
   );
 };
 

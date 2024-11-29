@@ -1,21 +1,42 @@
 import axios from 'axios';
-import { ApiResponse, Notification } from '../../types';
+import { ApiResponse, Notification, NotificationSettings } from '../../types';
+import { API_URL } from './config';
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
-export const notificationAPI = {
+const notificationAPI = {
   getNotifications: async (): Promise<ApiResponse<Notification[]>> => {
-    const response = await axios.get(`${BASE_URL}/notifications`);
+    const response = await axios.get(`${API_URL}/notifications`);
     return response.data;
   },
 
-  markAsRead: async (id: string): Promise<ApiResponse<Notification>> => {
-    const response = await axios.put(`${BASE_URL}/notifications/${id}/read`);
+  getUnreadCount: async (): Promise<ApiResponse<{ count: number }>> => {
+    const response = await axios.get(`${API_URL}/notifications/unread/count`);
     return response.data;
   },
 
-  deleteNotification: async (id: string): Promise<ApiResponse<void>> => {
-    const response = await axios.delete(`${BASE_URL}/notifications/${id}`);
+  markAsRead: async (notificationId: string): Promise<ApiResponse<Notification>> => {
+    const response = await axios.put(`${API_URL}/notifications/${notificationId}/read`);
     return response.data;
   },
+
+  markAllAsRead: async (): Promise<ApiResponse<{ message: string }>> => {
+    const response = await axios.put(`${API_URL}/notifications/read-all`);
+    return response.data;
+  },
+
+  deleteNotification: async (notificationId: string): Promise<ApiResponse<{ message: string }>> => {
+    const response = await axios.delete(`${API_URL}/notifications/${notificationId}`);
+    return response.data;
+  },
+
+  getSettings: async (): Promise<ApiResponse<NotificationSettings>> => {
+    const response = await axios.get(`${API_URL}/notifications/settings`);
+    return response.data;
+  },
+
+  updateSettings: async (settings: Partial<NotificationSettings>): Promise<ApiResponse<NotificationSettings>> => {
+    const response = await axios.put(`${API_URL}/notifications/settings`, settings);
+    return response.data;
+  }
 };
+
+export { notificationAPI };

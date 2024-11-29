@@ -1,7 +1,7 @@
 import { AxiosError } from 'axios';
 import { ApiResponse } from '../types';
 
-interface ApiErrorResponse {
+export interface ApiErrorResponse {
   message: string;
   error?: string;
 }
@@ -20,22 +20,14 @@ export class ApiError extends Error {
 
 export const handleApiError = (error: unknown): ApiErrorResponse => {
   if (error instanceof AxiosError) {
-    const response = error.response?.data as ApiResponse;
+    const response = error.response?.data as ApiResponse<unknown>;
     return {
       message: response?.message || response?.error || error.message || 'An error occurred',
       error: response?.error,
     };
   }
-
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      error: error.name,
-    };
-  }
-
   return {
-    message: 'An unknown error occurred',
+    message: error instanceof Error ? error.message : 'An unknown error occurred',
   };
 };
 
@@ -54,9 +46,12 @@ export const getErrorMessage = (error: unknown): string => {
 };
 
 export const isSuccessResponse = <T>(response: ApiResponse<T>): boolean => {
-  return response.status === 'success';
+  return response.success === true;
 };
 
 export const extractErrorMessage = <T>(response: ApiResponse<T>): string | undefined => {
-  return response.status === 'error' ? response.message || response.error : undefined;
+  if (!response.success) {
+    return response.message || response.error;
+  }
+  return undefined;
 };

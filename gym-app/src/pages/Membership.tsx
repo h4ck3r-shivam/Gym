@@ -108,6 +108,18 @@ const Membership: React.FC = () => {
     }, 2000);
   };
 
+  const currentMembership = {
+    // Add current membership data here
+  };
+
+  const paymentHistory = [
+    // Add payment history data here
+  ];
+
+  const handleDownloadInvoice = () => {
+    // Implement download invoice logic here
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Grid container spacing={3}>
@@ -131,12 +143,15 @@ const Membership: React.FC = () => {
 
         {/* Current Membership */}
         <Grid item xs={12} md={6}>
-          <MembershipCard />
+          <MembershipCard membership={currentMembership} />
         </Grid>
 
         {/* Payment History */}
         <Grid item xs={12} md={6}>
-          <PaymentHistory />
+          <PaymentHistory 
+            payments={paymentHistory} 
+            onDownloadInvoice={handleDownloadInvoice} 
+          />
         </Grid>
 
         {/* Membership Plans */}

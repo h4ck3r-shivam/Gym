@@ -1,52 +1,65 @@
 import axios from 'axios';
+import { API_URL } from './config';
 import { ApiResponse } from '../../types';
-import { getConfig } from './config';
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+interface AnalyticsData {
+  totalBookings: number;
+  totalRevenue: number;
+  totalUsers: number;
+  bookingsByDay: { date: string; count: number }[];
+  revenueByDay: { date: string; amount: number }[];
+  popularSlots: { slotId: string; name: string; bookings: number }[];
+}
 
-export interface AnalyticsData {
-  revenue: {
-    total: number;
-    monthly: { month: string; amount: number }[];
-  };
-  bookings: {
-    total: number;
-    monthly: { month: string; count: number }[];
-  };
-  users: {
-    total: number;
+interface GymAnalytics extends AnalyticsData {
+  averageRating: number;
+  totalReviews: number;
+  membershipStats: {
     active: number;
-    new: { month: string; count: number }[];
-  };
-  classes: {
+    expired: number;
     total: number;
-    popular: { name: string; bookings: number }[];
   };
 }
 
+interface OwnerAnalytics extends AnalyticsData {
+  totalGyms: number;
+  gymPerformance: {
+    gymId: string;
+    name: string;
+    bookings: number;
+    revenue: number;
+    rating: number;
+  }[];
+}
+
 export const analyticsAPI = {
-  getAnalytics: async (): Promise<ApiResponse<AnalyticsData>> => {
-    const response = await axios.get(`${BASE_URL}/analytics`, getConfig());
-    return response.data;
+  async getGymAnalytics(gymId: string, startDate?: string, endDate?: string): Promise<ApiResponse<GymAnalytics>> {
+    try {
+      const params = { startDate, endDate };
+      const response = await axios.get(`${API_URL}/analytics/gym/${gymId}`, { params });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  getRevenueStats: async (period: string): Promise<ApiResponse<AnalyticsData['revenue']>> => {
-    const response = await axios.get(`${BASE_URL}/analytics/revenue?period=${period}`, getConfig());
-    return response.data;
+  async getOwnerAnalytics(startDate?: string, endDate?: string): Promise<ApiResponse<OwnerAnalytics>> {
+    try {
+      const params = { startDate, endDate };
+      const response = await axios.get(`${API_URL}/analytics/owner`, { params });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
   },
 
-  getBookingStats: async (period: string): Promise<ApiResponse<AnalyticsData['bookings']>> => {
-    const response = await axios.get(`${BASE_URL}/analytics/bookings?period=${period}`, getConfig());
-    return response.data;
-  },
-
-  getUserStats: async (period: string): Promise<ApiResponse<AnalyticsData['users']>> => {
-    const response = await axios.get(`${BASE_URL}/analytics/users?period=${period}`, getConfig());
-    return response.data;
-  },
-
-  getClassStats: async (period: string): Promise<ApiResponse<AnalyticsData['classes']>> => {
-    const response = await axios.get(`${BASE_URL}/analytics/classes?period=${period}`, getConfig());
-    return response.data;
-  },
+  async getAdminAnalytics(startDate?: string, endDate?: string): Promise<ApiResponse<AnalyticsData>> {
+    try {
+      const params = { startDate, endDate };
+      const response = await axios.get(`${API_URL}/analytics/admin`, { params });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
 };

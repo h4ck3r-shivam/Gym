@@ -2,59 +2,33 @@ import React, { useState, useEffect } from 'react';
 import {
   Container,
   Grid,
-  Card,
-  CardContent,
+  Paper,
   Typography,
   Box,
   Avatar,
-  Tab,
-  Tabs,
-  Button,
   List,
   ListItem,
   ListItemText,
-  Chip,
   Divider,
+  Button,
   CircularProgress,
   Alert,
 } from '@mui/material';
 import {
-  Person,
-  FitnessCenter,
-  EventNote,
-  Star,
-  AccessTime,
+  Person as PersonIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { userAPI, bookingAPI } from '../../services/api';
+import { bookingAPI } from '../../services/api';
 import { format } from 'date-fns';
 import { Booking } from '../../types';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-const TabPanel = (props: TabPanelProps) => {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`profile-tabpanel-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
-  );
-};
-
-const ProfileDashboard = () => {
-  const { currentUser } = useAuth();
-  const [value, setValue] = useState(0);
+const ProfileDashboard: React.FC = () => {
+  const { currentUser, token } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,11 +36,15 @@ const ProfileDashboard = () => {
   }, []);
 
   const fetchBookings = async () => {
+    if (!token) return;
+
     try {
       setLoading(true);
-      const response = await bookingAPI.getUserBookings();
-      setBookings(response.data.data.bookings);
-      setError(null);
+      const response = await bookingAPI.getMyBookings(token);
+      if (response.success) {
+        setBookings(response.data.bookings);
+        setError(null);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch bookings');
     } finally {
@@ -74,158 +52,115 @@ const ProfileDashboard = () => {
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setValue(newValue);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'cancelled':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
+  if (!currentUser) {
     return (
       <Container>
-        <Alert severity="error" sx={{ mt: 4 }}>
-          {error}
-        </Alert>
+        <Alert severity="error">Please log in to view your profile</Alert>
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container>
       <Grid container spacing={3}>
-        {/* Profile Overview */}
+        {/* Profile Information */}
         <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Avatar
-                  sx={{
-                    width: 100,
-                    height: 100,
-                    bgcolor: 'primary.main',
-                    fontSize: '2rem',
-                    mb: 2,
-                  }}
-                >
-                  {currentUser?.firstName?.[0]}
-                  {currentUser?.lastName?.[0]}
-                </Avatar>
-                <Typography variant="h5" gutterBottom>
-                  {currentUser?.firstName} {currentUser?.lastName}
+          <Paper sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Avatar
+                src={currentUser.avatar}
+                sx={{ width: 80, height: 80, mr: 2 }}
+              >
+                <PersonIcon />
+              </Avatar>
+              <Box>
+                <Typography variant="h6">
+                  {currentUser.firstName} {currentUser.lastName}
                 </Typography>
-                <Typography color="textSecondary" gutterBottom>
-                  {currentUser?.email}
-                </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<Person />}
-                  sx={{ mt: 2 }}
-                >
-                  Edit Profile
-                </Button>
+                <Typography color="textSecondary">{currentUser.role}</Typography>
               </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Main Content */}
-        <Grid item xs={12} md={8}>
-          <Card>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={value} onChange={handleTabChange}>
-                <Tab icon={<EventNote />} label="Bookings" />
-                <Tab icon={<FitnessCenter />} label="Memberships" />
-                <Tab icon={<Star />} label="Reviews" />
-              </Tabs>
             </Box>
 
-            {/* Bookings Tab */}
-            <TabPanel value={value} index={0}>
-              <List>
-                {bookings.map((booking, index) => (
-                  <React.Fragment key={booking._id}>
-                    <ListItem alignItems="flex-start">
-                      <ListItemText
-                        primary={
-                          <Typography variant="h6" color="primary">
-                            {booking.gym.name}
-                          </Typography>
-                        }
-                        secondary={
-                          <Box sx={{ mt: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                              <AccessTime sx={{ fontSize: 'small', mr: 1 }} />
-                              <Typography variant="body2">
-                                {format(new Date(booking.startDate), 'PPP')} at{' '}
-                                {format(new Date(booking.slot.startTime), 'p')}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Chip
-                                size="small"
-                                label={booking.status}
-                                color={getStatusColor(booking.status) as any}
-                              />
-                              <Chip
-                                size="small"
-                                label={`₹${booking.amount}`}
-                                variant="outlined"
-                              />
-                              <Chip
-                                size="small"
-                                label={booking.plan}
-                                variant="outlined"
-                              />
-                            </Box>
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                    {index < bookings.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
-                {bookings.length === 0 && (
-                  <Typography color="textSecondary" align="center">
-                    No bookings found
+            <List>
+              <ListItem>
+                <EmailIcon sx={{ mr: 2 }} />
+                <ListItemText primary="Email" secondary={currentUser.email} />
+              </ListItem>
+              <ListItem>
+                <PhoneIcon sx={{ mr: 2 }} />
+                <ListItemText
+                  primary="Phone"
+                  secondary={currentUser.phoneNumber}
+                />
+              </ListItem>
+            </List>
+
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              fullWidth
+              sx={{ mt: 2 }}
+              href="/settings"
+            >
+              Edit Profile
+            </Button>
+          </Paper>
+        </Grid>
+
+        {/* Recent Bookings */}
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Recent Bookings
+            </Typography>
+
+            {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+                <CircularProgress />
+              </Box>
+            )}
+
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+
+            {!loading && bookings.length === 0 && (
+              <Typography color="textSecondary">
+                No bookings found
+              </Typography>
+            )}
+
+            {bookings.map((booking, index) => (
+              <React.Fragment key={booking._id}>
+                {index > 0 && <Divider sx={{ my: 2 }} />}
+                <Box>
+                  <Typography variant="subtitle1">
+                    {booking.gym.name}
                   </Typography>
-                )}
-              </List>
-            </TabPanel>
-
-            {/* Memberships Tab */}
-            <TabPanel value={value} index={1}>
-              <Typography color="textSecondary" align="center">
-                No active memberships
-              </Typography>
-            </TabPanel>
-
-            {/* Reviews Tab */}
-            <TabPanel value={value} index={2}>
-              <Typography color="textSecondary" align="center">
-                You haven't written any reviews yet
-              </Typography>
-            </TabPanel>
-          </Card>
+                  <Typography color="textSecondary" variant="body2">
+                    {format(new Date(booking.startDate), 'PPP')} -{' '}
+                    {format(new Date(booking.endDate), 'PPP')}
+                  </Typography>
+                  <Typography color="textSecondary" variant="body2">
+                    Time: {booking.slot.startTime} - {booking.slot.endTime}
+                  </Typography>
+                  <Typography
+                    color={
+                      booking.status === 'confirmed'
+                        ? 'success.main'
+                        : booking.status === 'cancelled'
+                        ? 'error.main'
+                        : 'warning.main'
+                    }
+                  >
+                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                  </Typography>
+                </Box>
+              </React.Fragment>
+            ))}
+          </Paper>
         </Grid>
       </Grid>
     </Container>

@@ -1,136 +1,116 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, LoginCredentials, RegisterData, UpdateProfileData, AuthContextType } from '../types';
 import { authAPI } from '../services/api';
-import { useNavigate } from 'react-router-dom';
-import { User, RegisterData as RegisterDataType } from '../types';
 
-interface AuthContextType {
-  currentUser: User | null;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterDataType) => Promise<void>;
-  logout: () => Promise<void>;
-  updateProfile: (data: UpdateProfileData) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  clearError: () => void;
-}
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-interface UpdateProfileData {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phoneNumber?: string;
-  profilePicture?: File;
-}
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
-const AuthContext = createContext<AuthContextType>({
-  currentUser: null,
-  loading: true,
-  error: null,
-  login: async () => {},
-  register: async () => {},
-  logout: async () => {},
-  updateProfile: async () => {},
-  changePassword: async () => {},
-  clearError: () => {},
-});
-
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAuth();
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      setToken(storedToken);
+      setLoading(true);
+      verifyToken();
+    }
   }, []);
 
-  const checkAuth = async () => {
+  const verifyToken = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const { data } = await authAPI.getCurrentUser();
-        setCurrentUser(data.data.user);
-      }
-    } catch (error) {
+      const response = await authAPI.verifyToken();
+      setCurrentUser(response.data.user);
+      setToken(response.data.token);
+    } catch (err) {
       localStorage.removeItem('token');
+      setCurrentUser(null);
+      setToken(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (credentials: LoginCredentials) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { data } = await authAPI.login({ email, password });
-      localStorage.setItem('token', data.data.token);
-      setCurrentUser(data.data.user);
-      navigate('/');
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Login failed');
-      throw error;
+      setError(null);
+      const response = await authAPI.login(credentials);
+      localStorage.setItem('token', response.data.token);
+      setCurrentUser(response.data.user);
+      setToken(response.data.token);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to login');
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (userData: RegisterDataType) => {
+  const register = async (data: RegisterData) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { data } = await authAPI.register(userData);
-      localStorage.setItem('token', data.data.token);
-      setCurrentUser(data.data.user);
-      navigate('/');
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Registration failed');
-      throw error;
+      setError(null);
+      const response = await authAPI.register(data);
+      localStorage.setItem('token', response.data.token);
+      setCurrentUser(response.data.user);
+      setToken(response.data.token);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to register');
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
   const logout = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
+      setError(null);
+      await authAPI.logout();
       localStorage.removeItem('token');
       setCurrentUser(null);
-      navigate('/login');
-    } catch (error: any) {
-      setError(error.message || 'Logout failed');
+      setToken(null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to logout');
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
   const updateProfile = async (data: UpdateProfileData) => {
+    setLoading(true);
     try {
       setError(null);
-      const formData = new FormData();
-      
-      if (data.firstName) formData.append('firstName', data.firstName);
-      if (data.lastName) formData.append('lastName', data.lastName);
-      if (data.email) formData.append('email', data.email);
-      if (data.phoneNumber) formData.append('phoneNumber', data.phoneNumber);
-      if (data.profilePicture) formData.append('profilePicture', data.profilePicture);
-
       const response = await authAPI.updateProfile(data);
-      setCurrentUser(response.data.data.user);
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Profile update failed');
-      throw error;
+      setCurrentUser(response.data.user);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update profile');
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
+    setLoading(true);
     try {
       setError(null);
-      setLoading(true);
       await authAPI.changePassword({ currentPassword, newPassword });
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Password change failed');
-      throw error;
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to change password');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -138,8 +118,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const clearError = () => setError(null);
 
-  const value = {
+  const value: AuthContextType = {
     currentUser,
+    token,
     loading,
     error,
     login,
@@ -147,18 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     logout,
     updateProfile,
     changePassword,
+    verifyToken,
     clearError,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-export default AuthContext;

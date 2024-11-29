@@ -22,10 +22,12 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { useNavigate } from 'react-router-dom';
 import { gymAPI } from '../../services/api';
 import { Gym } from '../../types';
+import { format } from 'date-fns';
 
 interface GymFormProps {
   gym?: Gym;
   mode: 'create' | 'edit';
+  onSubmit: (values: any) => Promise<void>;
 }
 
 const validationSchema = Yup.object({
@@ -34,22 +36,27 @@ const validationSchema = Yup.object({
   city: Yup.string().required('City is required'),
   state: Yup.string().required('State is required'),
   pincode: Yup.string().required('Pincode is required'),
-  phone: Yup.string().required('Phone number is required'),
+  phoneNumber: Yup.string().required('Phone number is required'),
   email: Yup.string().email('Invalid email').required('Email is required'),
   description: Yup.string().required('Description is required'),
   facilities: Yup.array().min(1, 'At least one facility is required'),
-  pricing: Yup.object({
-    perDay: Yup.number().min(0, 'Must be positive').required('Required'),
-    perWeek: Yup.number().min(0, 'Must be positive').required('Required'),
-    perMonth: Yup.number().min(0, 'Must be positive').required('Required'),
+  amenities: Yup.array().min(1, 'At least one amenity is required'),
+  openingTime: Yup.string().required('Opening time is required'),
+  closingTime: Yup.string().required('Closing time is required'),
+  pricing: Yup.object().shape({
+    perDay: Yup.number().min(0, 'Must be greater than 0').required('Per day price is required'),
+    perWeek: Yup.number().min(0, 'Must be greater than 0').required('Per week price is required'),
+    perMonth: Yup.number().min(0, 'Must be greater than 0').required('Per month price is required'),
   }),
+  images: Yup.array(),
 });
 
-const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
+const GymForm: React.FC<GymFormProps> = ({ gym, mode, onSubmit }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newFacility, setNewFacility] = useState('');
+  const [newAmenity, setNewAmenity] = useState('');
 
   const formik = useFormik({
     initialValues: {
@@ -58,30 +65,26 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
       city: gym?.city || '',
       state: gym?.state || '',
       pincode: gym?.pincode || '',
-      phone: gym?.phone || '',
+      phoneNumber: gym?.phoneNumber || '',
       email: gym?.email || '',
       description: gym?.description || '',
       facilities: gym?.facilities || [],
-      openingTime: gym?.openingTime || '06:00',
-      closingTime: gym?.closingTime || '22:00',
+      amenities: gym?.amenities || [],
+      openingTime: gym?.openingTime || '',
+      closingTime: gym?.closingTime || '',
       pricing: {
-        perDay: gym?.pricing.perDay || 0,
-        perWeek: gym?.pricing.perWeek || 0,
-        perMonth: gym?.pricing.perMonth || 0,
+        perDay: gym?.pricing?.perDay || 0,
+        perWeek: gym?.pricing?.perWeek || 0,
+        perMonth: gym?.pricing?.perMonth || 0,
       },
+      images: gym?.images || [],
     },
     validationSchema,
     onSubmit: async (values) => {
       try {
         setLoading(true);
         setError(null);
-
-        if (mode === 'create') {
-          await gymAPI.createGym(values);
-        } else {
-          await gymAPI.updateGym(gym!._id, values);
-        }
-
+        await onSubmit(values);
         navigate('/owner/dashboard');
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to save gym');
@@ -102,6 +105,20 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
     formik.setFieldValue(
       'facilities',
       formik.values.facilities.filter((f) => f !== facility)
+    );
+  };
+
+  const handleAddAmenity = () => {
+    if (newAmenity.trim() && !formik.values.amenities.includes(newAmenity.trim())) {
+      formik.setFieldValue('amenities', [...formik.values.amenities, newAmenity.trim()]);
+      setNewAmenity('');
+    }
+  };
+
+  const handleRemoveAmenity = (amenity: string) => {
+    formik.setFieldValue(
+      'amenities',
+      formik.values.amenities.filter((a) => a !== amenity)
     );
   };
 
@@ -156,12 +173,12 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Phone"
-                name="phone"
-                value={formik.values.phone}
+                label="Phone Number"
+                name="phoneNumber"
+                value={formik.values.phoneNumber}
                 onChange={formik.handleChange}
-                error={formik.touched.phone && Boolean(formik.errors.phone)}
-                helperText={formik.touched.phone && formik.errors.phone}
+                error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
+                helperText={formik.touched.phoneNumber && formik.errors.phoneNumber as string}
               />
             </Grid>
 
@@ -261,22 +278,66 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
 
             <Grid item xs={12}>
               <Typography variant="subtitle1" gutterBottom>
+                Amenities
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Add Amenity"
+                  value={newAmenity}
+                  onChange={(e) => setNewAmenity(e.target.value)}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={handleAddAmenity} edge="end">
+                          <Add />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {formik.values.amenities.map((amenity) => (
+                  <Chip
+                    key={amenity}
+                    label={amenity}
+                    onDelete={() => handleRemoveAmenity(amenity)}
+                  />
+                ))}
+              </Box>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" gutterBottom>
                 Timing
               </Typography>
               <LocalizationProvider dateAdapter={AdapterDateFns}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
-                    <TimePicker
+                    <TextField
+                      fullWidth
                       label="Opening Time"
+                      type="time"
+                      name="openingTime"
                       value={formik.values.openingTime}
-                      onChange={(value) => formik.setFieldValue('openingTime', value)}
+                      onChange={formik.handleChange}
+                      error={formik.touched.openingTime && Boolean(formik.errors.openingTime)}
+                      helperText={formik.touched.openingTime && formik.errors.openingTime}
+                      InputLabelProps={{ shrink: true }}
                     />
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <TimePicker
+                    <TextField
+                      fullWidth
                       label="Closing Time"
+                      type="time"
+                      name="closingTime"
                       value={formik.values.closingTime}
-                      onChange={(value) => formik.setFieldValue('closingTime', value)}
+                      onChange={formik.handleChange}
+                      error={formik.touched.closingTime && Boolean(formik.errors.closingTime)}
+                      helperText={formik.touched.closingTime && formik.errors.closingTime}
+                      InputLabelProps={{ shrink: true }}
                     />
                   </Grid>
                 </Grid>
@@ -296,6 +357,8 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
                     type="number"
                     value={formik.values.pricing.perDay}
                     onChange={formik.handleChange}
+                    error={formik.touched.pricing?.perDay && Boolean(formik.errors.pricing?.perDay)}
+                    helperText={formik.touched.pricing?.perDay && formik.errors.pricing?.perDay}
                     InputProps={{
                       startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                     }}
@@ -309,6 +372,8 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
                     type="number"
                     value={formik.values.pricing.perWeek}
                     onChange={formik.handleChange}
+                    error={formik.touched.pricing?.perWeek && Boolean(formik.errors.pricing?.perWeek)}
+                    helperText={formik.touched.pricing?.perWeek && formik.errors.pricing?.perWeek}
                     InputProps={{
                       startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                     }}
@@ -322,6 +387,8 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
                     type="number"
                     value={formik.values.pricing.perMonth}
                     onChange={formik.handleChange}
+                    error={formik.touched.pricing?.perMonth && Boolean(formik.errors.pricing?.perMonth)}
+                    helperText={formik.touched.pricing?.perMonth && formik.errors.pricing?.perMonth}
                     InputProps={{
                       startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                     }}
@@ -334,7 +401,7 @@ const GymForm: React.FC<GymFormProps> = ({ gym, mode }) => {
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
             <Button onClick={() => navigate('/owner/dashboard')}>Cancel</Button>
             <Button type="submit" variant="contained" disabled={loading}>
-              {mode === 'create' ? 'Create Gym' : 'Save Changes'}
+              {loading ? <CircularProgress size={24} /> : mode === 'create' ? 'Create Gym' : 'Save Changes'}
             </Button>
           </Box>
         </form>

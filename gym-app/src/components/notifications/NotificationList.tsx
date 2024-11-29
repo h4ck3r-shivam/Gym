@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   List,
   ListItem,
@@ -8,44 +8,41 @@ import {
   Typography,
   IconButton,
   Box,
-  Card,
-  CardContent,
-  Badge,
-  Menu,
-  MenuItem,
-  Divider,
   CircularProgress,
   Alert,
+  Chip,
 } from '@mui/material';
 import {
-  Notifications as NotificationsIcon,
-  Event,
-  Payment,
-  Info,
-  MoreVert,
-  Check,
-  Clear,
+  Notifications as NotificationIcon,
+  Delete as DeleteIcon,
+  Check as CheckIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { useAuth } from '../../contexts/AuthContext';
 import { notificationAPI } from '../../services/api';
 import { Notification } from '../../types';
 
-const NotificationList: React.FC = () => {
+interface NotificationListProps {
+  limit?: number;
+  showActions?: boolean;
+  onNotificationUpdate?: () => void;
+}
+
+const NotificationList: React.FC<NotificationListProps> = ({
+  limit,
+  showActions = true,
+  onNotificationUpdate,
+}) => {
+  const { currentUser } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedNotification, setSelectedNotification] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
 
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       const response = await notificationAPI.getNotifications();
-      setNotifications(response.data.data.notifications);
+      setNotifications(limit ? response.data.slice(0, limit) : response.data);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch notifications');
@@ -54,76 +51,47 @@ const NotificationList: React.FC = () => {
     }
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, notificationId: string) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedNotification(notificationId);
-  };
+  useEffect(() => {
+    if (currentUser) {
+      fetchNotifications();
+    }
+  }, [currentUser, limit]);
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedNotification(null);
-  };
-
-  const handleMarkAsRead = async () => {
-    if (!selectedNotification) return;
+  const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await notificationAPI.markAsRead(selectedNotification);
-      setNotifications(
-        notifications.map((notification) =>
-          notification._id === selectedNotification
-            ? { ...notification, read: true }
-            : notification
-        )
-      );
+      await notificationAPI.markAsRead(notificationId);
+      await fetchNotifications();
+      if (onNotificationUpdate) {
+        onNotificationUpdate();
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to mark notification as read');
     }
-    handleMenuClose();
   };
 
-  const handleDelete = async () => {
-    if (!selectedNotification) return;
+  const handleDelete = async (notificationId: string) => {
     try {
-      await notificationAPI.deleteNotification(selectedNotification);
-      setNotifications(
-        notifications.filter((notification) => notification._id !== selectedNotification)
-      );
+      await notificationAPI.deleteNotification(notificationId);
+      await fetchNotifications();
+      if (onNotificationUpdate) {
+        onNotificationUpdate();
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete notification');
     }
-    handleMenuClose();
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'booking':
-        return <Event color="primary" />;
-      case 'payment':
-        return <Payment color="success" />;
-      default:
-        return <Info color="info" />;
-    }
-  };
-
-  const getTimeAgo = (date: string) => {
-    const now = new Date();
-    const notificationDate = new Date(date);
-    const diffInHours = Math.floor(
-      (now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60)
+  if (!currentUser) {
+    return (
+      <Alert severity="warning">
+        Please log in to view notifications
+      </Alert>
     );
-
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${diffInHours}h ago`;
-    } else {
-      return format(notificationDate, 'MMM d, yyyy');
-    }
-  };
+  }
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+      <Box display="flex" justifyContent="center" p={3}>
         <CircularProgress />
       </Box>
     );
@@ -131,102 +99,94 @@ const NotificationList: React.FC = () => {
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
+      <Alert severity="error">
         {error}
       </Alert>
     );
   }
 
+  if (notifications.length === 0) {
+    return (
+      <Box p={3} textAlign="center">
+        <NotificationIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+        <Typography color="text.secondary" mt={1}>
+          No notifications
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
-    <Card>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Badge
-            badgeContent={notifications.filter((n) => !n.read).length}
-            color="error"
-            sx={{ mr: 1 }}
-          >
-            <NotificationsIcon color="action" />
-          </Badge>
-          <Typography variant="h6">Notifications</Typography>
-        </Box>
-
-        {notifications.length === 0 ? (
-          <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-            No notifications
-          </Typography>
-        ) : (
-          <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
-            {notifications.map((notification, index) => (
-              <React.Fragment key={notification._id}>
-                <ListItem
-                  alignItems="flex-start"
-                  sx={{
-                    bgcolor: notification.read ? 'inherit' : 'action.hover',
-                  }}
-                  secondaryAction={
-                    <IconButton
-                      edge="end"
-                      onClick={(e) => handleMenuOpen(e, notification._id)}
-                    >
-                      <MoreVert />
-                    </IconButton>
-                  }
+    <List>
+      {notifications.map((notification) => (
+        <ListItem
+          key={notification.id}
+          sx={{
+            bgcolor: notification.read ? 'transparent' : 'action.hover',
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+          secondaryAction={
+            showActions && (
+              <Box>
+                {!notification.read && (
+                  <IconButton
+                    edge="end"
+                    aria-label="mark as read"
+                    onClick={() => handleMarkAsRead(notification.id)}
+                    sx={{ mr: 1 }}
+                  >
+                    <CheckIcon />
+                  </IconButton>
+                )}
+                <IconButton
+                  edge="end"
+                  aria-label="delete"
+                  onClick={() => handleDelete(notification.id)}
                 >
-                  <ListItemAvatar>
-                    <Avatar>{getNotificationIcon(notification.type)}</Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={notification.title}
-                    secondary={
-                      <React.Fragment>
-                        <Typography
-                          component="span"
-                          variant="body2"
-                          color="text.primary"
-                        >
-                          {notification.message}
-                        </Typography>
-                        <br />
-                        <Typography
-                          component="span"
-                          variant="caption"
-                          color="text.secondary"
-                        >
-                          {getTimeAgo(notification.createdAt)}
-                        </Typography>
-                      </React.Fragment>
-                    }
-                  />
-                </ListItem>
-                {index < notifications.length - 1 && <Divider variant="inset" component="li" />}
-              </React.Fragment>
-            ))}
-          </List>
-        )}
-
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
-          }}
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+            )
+          }
         >
-          <MenuItem onClick={handleMarkAsRead}>
-            <Check sx={{ mr: 1 }} /> Mark as read
-          </MenuItem>
-          <MenuItem onClick={handleDelete}>
-            <Clear sx={{ mr: 1 }} /> Delete
-          </MenuItem>
-        </Menu>
-      </CardContent>
-    </Card>
+          <ListItemAvatar>
+            <Avatar>
+              <NotificationIcon />
+            </Avatar>
+          </ListItemAvatar>
+          <ListItemText
+            primary={
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="body1">{notification.title}</Typography>
+                {!notification.read && (
+                  <Chip
+                    label="New"
+                    color="primary"
+                    size="small"
+                    sx={{ height: 20 }}
+                  />
+                )}
+              </Box>
+            }
+            secondary={
+              <>
+                <Typography
+                  component="span"
+                  variant="body2"
+                  color="text.primary"
+                  display="block"
+                >
+                  {notification.message}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {format(new Date(notification.createdAt), 'PPp')}
+                </Typography>
+              </>
+            }
+          />
+        </ListItem>
+      ))}
+    </List>
   );
 };
 
